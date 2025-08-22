@@ -6,6 +6,38 @@ import csv
 import re
 import argparse
 
+def prompt_create_env():
+    print("It doesn't look like you have these scripts fully configured in a .env file.")
+    resp = input("Would you like some help creating one? (y/n): ").strip().lower()
+    if resp != "y":
+        print("Exiting. Please set up your .env file and rerun the script.")
+        exit(1)
+    canvas_url = input("Enter your Canvas course URL (e.g., https://canvas.harvard.edu/courses/12345): ").strip()
+    match = re.match(r"(https?://[^/]+)/courses/(\d+)", canvas_url)
+    if not match:
+        print("Could not parse Canvas URL. Please ensure it matches the format above.")
+        exit(1)
+    url, course_id = match.group(1), match.group(2)
+    print("To create an API token, go to:")
+    print(f"{url}/profile/settings")
+    print("and click '+ New Access Token'")
+    api_token = input("Paste your Canvas API token here: ").strip()
+    timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+    # Check if .env exists and back it up if so
+    if os.path.exists(".env"):
+        backup_name = f".env-bak-{timestamp}"
+        print(f"Existing .env found. Backing up to {backup_name}")
+        os.rename(".env", backup_name)
+    with open(".env", "w") as f:
+        f.write(f"## ------------------------------------\n")
+        f.write(f"#  .env file created {timestamp}\n")
+        f.write(f"## ------------------------------------\n")        
+        f.write(f"CANVAS_URL={url}\n")
+        f.write(f"CANVAS_API_TOKEN={api_token}\n")
+        f.write(f"CANVAS_COURSE_ID={course_id}\n")
+    print("Wrote .env file. Please rerun the script.")
+    exit(0)
+    
 def get_submissions_in_course(course):
     users = {}
     mycourse_id = course.id
@@ -55,15 +87,16 @@ def get_submissions_in_course(course):
     print("total submissions:  ",subcount)
     print(f"Submission data in {myfile}")
 
-
-
-
 if __name__ == "__main__":
     load_dotenv()
     CANVAS_URL = os.getenv("CANVAS_URL")
     CANVAS_API_TOKEN = os.getenv("CANVAS_API_TOKEN")
-    CANVAS_COURSE_ID = int(os.getenv("CANVAS_COURSE_ID"))
+    CANVAS_COURSE_ID = os.getenv("CANVAS_COURSE_ID")
 
+    if not (CANVAS_URL and CANVAS_API_TOKEN and CANVAS_COURSE_ID):
+        prompt_create_env()
+
+    CANVAS_COURSE_ID = int(CANVAS_COURSE_ID)
     canvas = Canvas(CANVAS_URL, CANVAS_API_TOKEN)
     course = canvas.get_course(CANVAS_COURSE_ID)
     parser = argparse.ArgumentParser(description="Get Canvas course submissions.")
